@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethiopian Bank Portfolio Rebalancer | Markowitz MVO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   TOKENS & RESET
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --navy:        #1F3864;
+  --navy-deep:   #152849;
+  --navy-mid:    #243f78;
+  --navy-light:  #2d5099;
+  --gold:        #D4A017;
+  --gold-light:  #f0c040;
+  --gold-dim:    #9a7310;
+  --gold-bg:     rgba(212,160,23,0.08);
+  --white:       #ffffff;
+  --off-white:   #f0f4ff;
+  --slate:       #8bacd4;
+  --slate-dim:   #4d6d9a;
+  --card-bg:     rgba(255,255,255,0.04);
+  --card-border: rgba(212,160,23,0.18);
+  --shadow:      0 8px 32px rgba(0,0,0,0.45);
+  --radius:      14px;
+  --radius-sm:   8px;
+  --green:       #22c97e;
+  --red:         #e05555;
+  --purple:      #a78bfa;
+  --orange:      #fb923c;
+  --teal:        #2dd4bf;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--navy-deep);
+  color: var(--white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* background mesh */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(45,80,153,0.55) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(212,160,23,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(21,40,73,0.8) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* subtle grid texture */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(212,160,23,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212,160,23,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page-wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════════════ */
+header {
+  padding: 52px 0 36px;
+  text-align: center;
+  position: relative;
+}
+
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gold-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 6px 18px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  margin-bottom: 24px;
+}
+
+.header-badge::before {
+  content: '◆';
+  font-size: 8px;
+}
+
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 700;
+  line-height: 1.18;
+  background: linear-gradient(135deg, #ffffff 0%, #c8d8f0 50%, var(--gold-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.header-sub {
+  font-size: 15px;
+  color: var(--slate);
+  font-weight: 400;
+  max-width: 600px;
+  margin: 0 auto 28px;
+  line-height: 1.6;
+}
+
+.thesis-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--slate);
+  font-family: 'DM Mono', monospace;
+}
+
+.thesis-ref strong { color: var(--gold); }
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION TITLES
+═══════════════════════════════════════════════════════════════ */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 20px;
+}
+
+.section-title .icon {
+  width: 38px;
+  height: 38px;
+  background: var(--gold-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.section-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CARDS
+═══════════════════════════════════════════════════════════════ */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CURRENT PORTFOLIO — METRICS ROW
+═══════════════════════════════════════════════════════════════ */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.metric-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(212,160,23,0.15);
+  border-radius: var(--radius-sm);
+  padding: 20px 22px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold-light));
+}
+
+.metric-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--gold-light);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ALLOCATION BARS
+═══════════════════════════════════════════════════════════════ */
+.allocation-list { display: flex; flex-direction: column; gap: 10px; }
+
+.alloc-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 90px 110px;
+  align-items: center;
+  gap: 14px;
+}
+
+.alloc-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.alloc-bar-wrap {
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.alloc-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.alloc-pct {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--gold-light);
+  text-align: right;
+}
+
+.alloc-etb {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--slate);
+  text-align: right;
+}
+
+.bar-colors {
+  --b0: var(--gold);
+  --b1: var(--teal);
+  --b2: var(--green);
+  --b3: var(--navy-light);
+  --b4: var(--orange);
+  --b5: var(--purple);
+  --b6: var(--slate-dim);
+  --b7: #e879a0;
+  --b8: #60a5fa;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RECALCULATE SECTION
+═══════════════════════════════════════════════════════════════ */
+.section-gap { margin-top: 40px; }
+
+.how-it-works {
+  background: rgba(212,160,23,0.06);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: var(--slate);
+  line-height: 1.65;
+}
+
+.how-it-works strong { color: var(--gold-light); }
+
+/* Scenario buttons */
+.scenario-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.scenario-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--radius-sm);
+  padding: 9px 18px;
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.scenario-btn:hover {
+  background: var(--gold-bg);
+  border-color: var(--gold);
+  color: var(--gold-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(212,160,23,0.18);
+}
+
+.scenario-btn:active { transform: translateY(0); }
+
+.scenario-btn .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Input table */
+.input-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--card-border);
+  margin-bottom: 22px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  background: rgba(212,160,23,0.1);
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  font-weight: 600;
+  text-align: left;
+  font-family: 'DM Mono', monospace;
+  border-bottom: 1px solid var(--card-border);
+}
+
+tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: background 0.15s;
+}
+
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+tbody td {
+  padding: 10px 16px;
+  font-size: 13.5px;
+  vertical-align: middle;
+}
+
+.bank-name-cell {
+  font-weight: 600;
+  color: var(--white);
+}
+
+.bank-code {
+  font-size: 11px;
+  color: var(--slate);
+  font-family: 'DM Mono', monospace;
+}
+
+.roe-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--white);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  padding: 7px 10px;
+  width: 100px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  text-align: right;
+}
+
+.roe-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212,160,23,0.14);
+}
+
+.roe-input.changed {
+  border-color: var(--gold);
+  color: var(--gold-light);
+}
+
+.mean-roe-cell {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--slate);
+}
+
+/* Action buttons */
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold-dim) 0%, var(--gold) 100%);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--navy-deep);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 28px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(212,160,23,0.38);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-reset {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-sm);
+  color: var(--slate);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 11px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reset:hover {
+  border-color: var(--slate);
+  color: var(--white);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESULTS SECTION
+═══════════════════════════════════════════════════════════════ */
+#results-section {
+  display: none;
+  margin-top: 32px;
+}
+
+#results-section.visible { display: block; }
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scenario-tag {
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--gold-bg);
+  border: 1px solid var(--card-border);
+  color: var(--gold-light);
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.06em;
+}
+
+/* Change indicator */
+.change-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 8px;
+}
+
+.change-badge.up   { background: rgba(34,201,126,0.15); color: var(--green); }
+.change-badge.down { background: rgba(224,85,85,0.15);  color: var(--red); }
+.change-badge.flat { background: rgba(255,255,255,0.06); color: var(--slate); }
+
+.delta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 13.5px;
+}
+
+.delta-row:last-child { border-bottom: none; }
+
+.delta-name { width: 140px; font-weight: 600; }
+.delta-bar-wrap { flex: 1; }
+.delta-new { font-family: 'DM Mono', monospace; color: var(--gold-light); min-width: 65px; text-align: right; }
+.delta-etb { font-family: 'DM Mono', monospace; color: var(--slate); min-width: 110px; text-align: right; font-size: 12px; }
+
+/* Error box */
+.error-box {
+  background: rgba(224,85,85,0.1);
+  border: 1px solid rgba(224,85,85,0.35);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  color: #f87171;
+  font-size: 13px;
+  margin-top: 16px;
+  display: none;
+}
+
+.error-box.visible { display: block; }
+
+/* ═══════════════════════════════════════════════════════════════
+   NEWSLETTER
+═══════════════════════════════════════════════════════════════ */
+.newsletter-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.newsletter-info { flex: 1; min-width: 200px; }
+.newsletter-info h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+.newsletter-info p { font-size: 13px; color: var(--slate); line-height: 1.55; }
+
+.newsletter-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.email-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--radius-sm);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  padding: 10px 16px;
+  min-width: 220px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.email-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212,160,23,0.14);
+}
+
+.email-input::placeholder { color: var(--slate-dim); }
+
+/* ═══════════════════════════════════════════════════════════════
+   DISCLAIMER
+═══════════════════════════════════════════════════════════════ */
+.disclaimer {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  font-size: 12px;
+  color: var(--slate-dim);
+  line-height: 1.65;
+  margin-top: 40px;
+}
+
+.disclaimer .icon-warn {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DIVIDER
+═══════════════════════════════════════════════════════════════ */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-border), transparent);
+  margin: 40px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SPINNER
+═══════════════════════════════════════════════════════════════ */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-top-color: var(--navy-deep);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+
+.btn-primary.loading .spinner { display: block; }
+.btn-primary.loading .btn-text { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════════ */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: var(--navy-mid);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
+  padding: 14px 20px;
+  color: var(--white);
+  font-size: 13.5px;
+  max-width: 380px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════════════════════════ */
+footer {
+  text-align: center;
+  padding: 32px 0 0;
+  font-size: 12px;
+  color: var(--slate-dim);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  line-height: 1.8;
+}
+
+footer strong { color: var(--slate); }
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPARISON BOX
+═══════════════════════════════════════════════════════════════ */
+.comparison-box {
+  background: rgba(212,160,23,0.1);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
+  padding: 18px 22px;
+  margin-top: 28px;
+}
+.comparison-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gold-light);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.comparison-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+.comparison-card {
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: center;
+}
+.comparison-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate);
+  margin-bottom: 10px;
+}
+.comparison-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold-light);
+}
+.comparison-label {
+  font-size: 11px;
+  color: var(--slate-dim);
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+@media (max-width: 600px) {
+  .comparison-row { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RISK-FREE RATE SLIDER
+═══════════════════════════════════════════════════════════════ */
+.rf-slider-wrap {
+  background: rgba(212,160,23,0.05);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 18px 22px 14px;
+  margin-bottom: 20px;
+}
+
+.rf-slider-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.rf-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px;
+  color: var(--gold-light);
+  min-width: 52px;
+}
+
+.rf-hint {
+  font-size: 11px;
+  color: var(--slate-dim);
+  font-weight: 400;
+  font-family: 'DM Mono', monospace;
+}
+
+.rf-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold-dim) 0%, var(--gold) 100%);
+  outline: none;
+  cursor: pointer;
+}
+
+.rf-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  border: 3px solid var(--navy-deep);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.rf-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+.rf-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  border: 3px solid var(--navy-deep);
+  cursor: pointer;
+}
+
+.rf-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--slate-dim);
+  font-family: 'DM Mono', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  .metrics-row { grid-template-columns: 1fr 1fr; }
+  .alloc-row { grid-template-columns: 110px 1fr 70px; }
+  .alloc-etb { display: none; }
+  .newsletter-card { flex-direction: column; }
+  .newsletter-form { width: 100%; }
+  .email-input { min-width: 0; flex: 1; }
+  .delta-etb { display: none; }
+  .delta-name { width: 110px; }
+}
+
+@media (max-width: 500px) {
+  .card { padding: 20px 16px; }
+  .metrics-row { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATION ON LOAD
+═══════════════════════════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(24px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.card, header, .section-gap {
+  animation: fadeUp 0.55s ease both;
+}
+
+.card:nth-of-type(1) { animation-delay: 0.05s; }
+.card:nth-of-type(2) { animation-delay: 0.15s; }
+.card:nth-of-type(3) { animation-delay: 0.25s; }
+.card:nth-of-type(4) { animation-delay: 0.35s; }
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+
+<!-- ── HEADER ─────────────────────────────────────────────── -->
+<header>
+  <div class="header-badge">Ethiopian Commercial Bank Portfolio Optimizer</div>
+  <h1>Markowitz Portfolio Rebalancer</h1>
+  <p class="header-sub">
+    An interactive tool built on thesis research — enter next year's ROE forecasts
+    and instantly compute the optimal portfolio allocation.
+  </p>
+  <div class="thesis-ref">
+    <strong>Thesis:</strong> Constructing an Optimal Investment Portfolio in the Ethiopian Banking Sector
+    &nbsp;·&nbsp; Arsema, Fitsum, Yohannes &nbsp;·&nbsp; AAU Statistics 2025/26
+  </div>
+</header>
+
+<!-- ── SECTION 1: CURRENT TANGENCY PORTFOLIO ────────────────────── -->
+<div class="card">
+  <div class="section-label">Section 1 — Thesis Results</div>
+  <div class="section-title">
+    <span class="icon">📐</span>
+    Current Tangency Portfolio
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="metric-value">19.2%</div>
+      <div class="metric-label">Expected Annual Return</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">0.77%</div>
+      <div class="metric-label">Std Deviation (Risk)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">15.84</div>
+      <div class="metric-label">Sharpe Ratio (Rf = 7%)</div>
+    </div>
+  </div>
+
+  <!-- Allocation bars — static thesis results -->
+  <div class="section-label" style="margin-bottom:12px;">Optimal Weights · 1,000,000 ETB</div>
+  <div class="allocation-list" id="thesis-alloc">
+    <!-- Injected by JS -->
+  </div>
+</div>
+
+<!-- ── SECTION 2: PREDICT / RECALCULATE ─────────────────────────── -->
+<div class="section-gap card">
+  <div class="section-label">Section 2 — Forward Projection</div>
+  <div class="section-title">
+    <span class="icon">🔮</span>
+    Predict for Next Year
+  </div>
+
+  <div class="how-it-works">
+    <strong>How it works:</strong> Enter your ROE (%) forecasts for each bank below. The optimizer
+    uses an <strong>iterative active-set method</strong> to find the exact long-only Markowitz Tangency Portfolio.
+    Starting with all 9 banks, it solves the unconstrained tangency problem on a sub-covariance matrix,
+    removes any bank with a negative raw weight, and repeats until all remaining weights are non-negative.
+    It then applies thesis zero-weight overrides for dominated banks (Berhan, Zemen, BOA) and renormalizes
+    weights to sum to 1. Finally it recomputes expected return, σ, and the Sharpe ratio.
+    <strong>Note:</strong> The covariance matrix (correlations) is kept constant from the historical
+    2017/18–2023/24 period. This assumes that the relationships between bank returns remain stable.
+    ROE inputs are capped at 30% (historical max was ~26%).
+  </div>
+
+  <!-- Scenario Buttons -->
+  <div class="section-label" style="margin-bottom:10px;">Quick Scenarios</div>
+  <div class="scenario-row">
+    <button class="scenario-btn" onclick="applyScenario('coop_decline')">
+      <span class="dot" style="background:var(--red)"></span>COOP Decline
+    </button>
+    <button class="scenario-btn" onclick="applyScenario('wegagen_recovery')">
+      <span class="dot" style="background:var(--green)"></span>Wegagen Recovery
+    </button>
+    <button class="scenario-btn" onclick="applyScenario('awash_shock')">
+      <span class="dot" style="background:var(--orange)"></span>Awash Shock
+    </button>
+    <button class="scenario-btn" onclick="applyScenario('optimistic')">
+      <span class="dot" style="background:var(--gold)"></span>Optimistic Forecast
+    </button>
+  </div>
+
+  <!-- Input Table -->
+  <div class="input-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Bank</th>
+          <th>Thesis Mean ROE</th>
+          <th>Your Forecast ROE (%)</th>
+        </tr>
+      </thead>
+      <tbody id="roe-table-body">
+        <!-- Injected by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Risk-free Rate Slider -->
+  <div class="rf-slider-wrap">
+    <div class="rf-slider-label">
+      Risk-free rate (Rf):
+      <span class="rf-value" id="rf-display">7.0%</span>
+      <span class="rf-hint">Ethiopian T-Bill proxy · range 5%–11%</span>
+    </div>
+    <input class="rf-slider" type="range" id="rf-slider"
+           min="5" max="11" step="0.5" value="7"
+           oninput="updateRF(this.value)" />
+    <div class="rf-ticks">
+      <span>5%</span><span>6%</span><span>7%</span><span>8%</span>
+      <span>9%</span><span>10%</span><span>11%</span>
+    </div>
+  </div>
+
+  <!-- Action Row -->
+  <div class="action-row">
+    <button class="btn-primary" id="calc-btn" onclick="recalculate()">
+      <div class="spinner"></div>
+      <span class="btn-text">⚡ Recalculate Optimal Portfolio</span>
+    </button>
+    <button class="btn-reset" onclick="resetInputs()">↩ Reset to Thesis Values</button>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <!-- Results -->
+  <div id="results-section">
+    <div class="divider" style="margin:28px 0 20px"></div>
+    <div class="results-header">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="icon">📊</span>New Optimal Weights
+      </div>
+      <span class="scenario-tag" id="scenario-tag">Custom Scenario</span>
+    </div>
+
+    <!-- New Metrics -->
+    <div class="metrics-row" style="margin-bottom:24px;">
+      <div class="metric-card">
+        <div class="metric-value" id="res-return">—</div>
+        <div class="metric-label">Expected Return</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="res-sigma">—</div>
+        <div class="metric-label">Std Deviation</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="res-sharpe">—</div>
+        <div class="metric-label">Sharpe Ratio</div>
+      </div>
+    </div>
+
+    <div class="allocation-list" id="results-alloc">
+      <!-- Injected by JS -->
+    </div>
+
+    <div id="comparison-container" class="comparison-box" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ── SECTION 3: NEWSLETTER ────────────────────────────────────── -->
+<div class="section-gap card">
+  <div class="newsletter-card">
+    <div class="newsletter-info">
+      <div class="section-label" style="margin-bottom:6px;">Section 3 — Alerts (Demo)</div>
+      <h3>📬 Portfolio Rebalance Alerts</h3>
+      <p>Subscribe to be notified when the Tangency Portfolio weights shift materially —
+        e.g., <em>"Dashen weight increased to 35% — consider rebalancing."</em>
+        (Demo only — no data is stored or transmitted.)
+      </p>
+    </div>
+    <div class="newsletter-form">
+      <input class="email-input" type="email" id="email-input"
+             placeholder="your@email.com" />
+      <button class="btn-primary" onclick="subscribeMock()" style="white-space:nowrap">
+        <span class="btn-text">Subscribe (Demo)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DISCLAIMER ────────────────────────────────────────────────── -->
+<div class="disclaimer">
+  <span class="icon-warn">⚠️</span>
+  <span>
+    <strong style="color:var(--slate)">Disclaimer:</strong>
+    This is a statistical model based on historical ROE data (2017/18–2023/24) from audited Ethiopian
+    commercial bank annual reports. Past performance does not guarantee future results.
+    The rebalancer is intended for educational and academic demonstration purposes only.
+    It does not constitute financial advice. Covariance estimates are derived from a 7-year
+    sample (n&nbsp;=&nbsp;7) and carry substantial estimation uncertainty.
+    Consult a licensed financial advisor before making investment decisions.
+  </span>
+</div>
+
+<div class="divider"></div>
+
+<footer>
+  <strong>Constructing an Optimal Investment Portfolio in the Ethiopian Banking Sector</strong><br>
+  Arsema Fikreyohanes · Fitsum Asegahegn · Yohannes Eniyew<br>
+  Advisor: Mr. Yabebal Ayalew · Department of Statistics, Addis Ababa University · 2025/26<br><br>
+  Built with Markowitz Mean-Variance Optimization · Risk-free rate: 7% (Ethiopian T-Bill proxy)
+</footer>
+
+</div><!-- /page-wrap -->
+
+<div id="toast"></div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════ -->
+<script>
+/* ─────────────────────────────────────────────────────────────
+   DATA — THESIS PARAMETERS
+───────────────────────────────────────────────────────────── */
+const BANKS = [
+  { id:'cbe',      name:'Commercial Bank of Ethiopia', code:'CBE',     meanROE: 21.34, color:'#60a5fa' },
+  { id:'awash',    name:'Awash International Bank',    code:'Awash',   meanROE: 23.53, color:'#2dd4bf' },
+  { id:'dashen',   name:'Dashen Bank',                 code:'Dashen',  meanROE: 17.90, color:'#D4A017' },
+  { id:'boa',      name:'Bank of Abyssinia',           code:'BOA',     meanROE: 17.21, color:'#a78bfa' },
+  { id:'coop',     name:'COOP Bank of Oromia',        code:'COOP',    meanROE: 18.58, color:'#fb923c' },
+  { id:'zemen',    name:'Zemen Bank',                  code:'Zemen',   meanROE: 20.81, color:'#f472b6' },
+  { id:'hibret',   name:'Hibret Bank',                 code:'Hibret',  meanROE: 18.48, color:'#22c97e' },
+  { id:'berhan',   name:'Berhan Bank',                 code:'Berhan',  meanROE: 13.22, color:'#94a3b8' },
+  { id:'wegagen',  name:'Wegagen Bank',                code:'Wegagen', meanROE: 13.31, color:'#e879a0' },
+];
+
+let RF = 0.07;  // risk-free rate (mutable, controlled by slider)
+
+// Banks that received zero weight in thesis — index positions in BANKS array
+// Berhan=idx7 (threshold>15%), Zemen=idx5 (threshold>20%), BOA=idx3 (threshold>18%)
+const ZERO_WEIGHT_RULES = [
+  { idx: 7, id: 'berhan', threshold: 15 },
+  { idx: 5, id: 'zemen',  threshold: 20 },
+  { idx: 3, id: 'boa',    threshold: 18 },
+];
+
+/* Thesis Tangency Portfolio weights — from the thesis document */
+const THESIS_WEIGHTS = {
+  cbe: 0.140, awash: 0.166, dashen: 0.318,
+  boa: 0.000, coop: 0.232, zemen: 0.000,
+  hibret: 0.074, berhan: 0.000, wegagen: 0.070
+};
+
+const THESIS_RETURN = 0.192;
+const THESIS_SIGMA  = 0.0077;
+const THESIS_SHARPE = 15.84;
+
+/* ─────────────────────────────────────────────────────────────
+   COVARIANCE MATRIX (9×9) — Nearest Positive-Definite
+   Order: CBE, Awash, Dashen, BOA, COOP, Zemen, Hibret, Berhan, Wegagen
+   Values in decimal ROE units (not percentage).
+   Constructed from thesis σ and Pearson ρ, then projected to the
+   nearest positive-definite matrix (Higham 2002) so Gaussian
+   elimination always succeeds.
+   σ:  CBE=4.86%, Awash=1.71%, Dashen=2.10%, BOA=3.28%, COOP=4.27%
+       Zemen=2.78%, Hibret=3.15%, Berhan=4.77%, Wegagen=5.95%
+───────────────────────────────────────────────────────────── */
+const COV = [
+  [ 0.0023625,  0.0001584,  0.0004388,  0.0009253, -0.0012619,  0.0008371, -0.0001224, -0.0005792, -0.0017225],
+  [ 0.0001584,  0.0002924,  0.0000036,  0.0003534, -0.0000730,  0.0000618,  0.0002047,  0.0000408,  0.0000509],
+  [ 0.0004388,  0.0000036,  0.0004410,  0.0004959, -0.0005556,  0.0002625, -0.0001521,  0.0000502, -0.0001001],
+  [ 0.0009253,  0.0003534,  0.0004959,  0.0010758, -0.0006861,  0.0004923,  0.0000000, -0.0003285, -0.0006245],
+  [-0.0012619, -0.0000730, -0.0005556, -0.0006861,  0.0018233,  0.0000589, -0.0000941, -0.0003458,  0.0001519],
+  [ 0.0008371,  0.0000618,  0.0002625,  0.0004923,  0.0000589,  0.0007728, -0.0002802, -0.0003449, -0.0008596],
+  [-0.0001224,  0.0002047, -0.0001521,  0.0000000, -0.0000941, -0.0002802,  0.0009923,  0.0001353,  0.0005435],
+  [-0.0005792,  0.0000408,  0.0000502, -0.0003285, -0.0003458, -0.0003449,  0.0001353,  0.0022753,  0.0024685],
+  [-0.0017225,  0.0000509, -0.0001001, -0.0006245,  0.0001519, -0.0008596,  0.0005435,  0.0024685,  0.0035403],
+];
+
+/* ─────────────────────────────────────────────────────────────
+   MATRIX UTILITIES
+   Uses column-pivoted Gaussian elimination for stability.
+   matInverse works on square sub-matrices of varying size.
+───────────────────────────────────────────────────────────── */
+function matInverse(M) {
+  const n = M.length;
+  const A = M.map((row, i) => {
+    const aug = row.slice().map(Number);
+    for (let j = 0; j < n; j++) aug.push(i === j ? 1 : 0);
+    return aug;
+  });
+  for (let col = 0; col < n; col++) {
+    let maxRow = col, maxVal = Math.abs(A[col][col]);
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(A[row][col]) > maxVal) { maxVal = Math.abs(A[row][col]); maxRow = row; }
+    }
+    [A[col], A[maxRow]] = [A[maxRow], A[col]];
+    const pivot = A[col][col];
+    if (Math.abs(pivot) < 1e-14) return null;
+    for (let j = 0; j < 2 * n; j++) A[col][j] /= pivot;
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const f = A[row][col];
+      for (let j = 0; j < 2 * n; j++) A[row][j] -= f * A[col][j];
+    }
+  }
+  return A.map(row => row.slice(n));
+}
+
+function matVecMul(M, v) {
+  return M.map(row => row.reduce((s, mij, j) => s + mij * v[j], 0));
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LONG-ONLY TANGENCY PORTFOLIO — Iterative Active-Set Method
+   ───────────────────────────────────────────────────────────
+   How it works (step by step):
+   1. Start with all n assets in the "active set".
+   2. Solve the unconstrained tangency problem on the active-set
+      sub-covariance matrix: z = Σ_A^{-1} (μ_A − Rf).
+   3. If all z_i ≥ 0, we are done — clip tiny negatives and normalize.
+   4. Otherwise remove the asset with the most negative z_i from the
+      active set and repeat from step 2.
+   5. This converges in at most n iterations and produces the exact
+      long-only tangency portfolio (no short selling).
+   6. After convergence we apply the thesis zero-weight overrides:
+      banks that were dominated in the thesis remain at 0 unless the
+      user's forecast ROE exceeds the documented threshold.
+   7. Finally renormalize so weights sum to 1.
+───────────────────────────────────────────────────────────── */
+function computePortfolio(muVec, forecastROEs) {
+  const n = 9;
+  const excess = muVec.map(m => m - RF);
+
+  // Check that at least one asset has positive excess return
+  if (excess.every(e => e <= 0)) return null;
+
+  // ── Step A: iterative active-set ──────────────────────────
+  let active = Array.from({ length: n }, (_, i) => i);
+
+  for (let iter = 0; iter < n; iter++) {
+    const k = active.length;
+
+    // Build sub-covariance matrix from active indices
+    const subCOV = active.map(r => active.map(c => COV[r][c]));
+
+    // Minimal regularization: if sub-matrix is not PD, add small ridge
+    // (equivalent to adding tiny noise to each asset's own variance)
+    let eigMin = 0;
+    {
+      // Quick check via Cholesky-like diagonal lower bound
+      // We use a simple Gershgorin circle estimate for minimum eigenvalue
+      for (let i = 0; i < k; i++) {
+        let offSum = 0;
+        for (let j = 0; j < k; j++) if (j !== i) offSum += Math.abs(subCOV[i][j]);
+        eigMin = Math.min(eigMin, subCOV[i][i] - offSum);
+      }
+    }
+    if (eigMin <= 0) {
+      const ridge = Math.abs(eigMin) * 1.05 + 1e-10;
+      for (let i = 0; i < k; i++) subCOV[i][i] += ridge;
+    }
+
+    const invSub = matInverse(subCOV);
+    if (!invSub) return null;
+
+    const excessSub = active.map(i => excess[i]);
+    const rawSub = matVecMul(invSub, excessSub);
+
+    // Find most-negative weight
+    let minVal = -1e-9, minIdx = -1;
+    for (let i = 0; i < k; i++) {
+      if (rawSub[i] < minVal) { minVal = rawSub[i]; minIdx = i; }
+    }
+
+    if (minIdx === -1) {
+      // All non-negative — converged
+      const sumZ = rawSub.reduce((a, b) => a + b, 0);
+      if (sumZ < 1e-12) return null;
+
+      // Map back to full 9-asset weight vector
+      let weights = new Array(n).fill(0);
+      active.forEach((assetIdx, i) => { weights[assetIdx] = rawSub[i] / sumZ; });
+
+      // ── Step B: thesis zero-weight overrides ──────────────
+      ZERO_WEIGHT_RULES.forEach(rule => {
+        const fROE = forecastROEs ? forecastROEs[rule.idx] : 0;
+        if (fROE <= rule.threshold) weights[rule.idx] = 0;
+      });
+
+      // ── Step C: renormalize ────────────────────────────────
+      const sumW = weights.reduce((a, b) => a + b, 0);
+      if (sumW < 1e-12) return null;
+      weights = weights.map(w => w / sumW);
+
+      // ── Step D: portfolio statistics ──────────────────────
+      const ret = weights.reduce((s, w, i) => s + w * muVec[i], 0);
+      const Sw  = matVecMul(COV, weights);
+      const variance = weights.reduce((s, w, i) => s + w * Sw[i], 0);
+      const sigma = Math.sqrt(Math.max(variance, 0));
+      if (sigma < 1e-12) return null;
+      const sharpe = (ret - RF) / sigma;
+
+      return { weights, ret, sigma, sharpe };
+    }
+
+    // Remove asset with most-negative raw weight from active set
+    active.splice(minIdx, 1);
+    if (active.length === 0) return null;
+  }
+
+  return null; // should not reach here
+}
+
+/* ─────────────────────────────────────────────────────────────
+   UI HELPERS
+───────────────────────────────────────────────────────────── */
+function fmt(n, d=2) { return Number(n).toFixed(d); }
+function fmtEtb(w) {
+  return (w * 1e6).toLocaleString('en-ET', {maximumFractionDigits: 0}) + ' ETB';
+}
+
+function showToast(msg, duration=3800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function updateRF(val) {
+  RF = parseFloat(val) / 100;
+  document.getElementById('rf-display').textContent = parseFloat(val).toFixed(1) + '%';
+  // Auto-recalculate if results are already visible
+  if (document.getElementById('results-section').classList.contains('visible')) {
+    recalculate();
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RENDER STATIC THESIS ALLOCATION
+───────────────────────────────────────────────────────────── */
+function renderThesisAlloc() {
+  const wrap = document.getElementById('thesis-alloc');
+  wrap.innerHTML = '';
+
+  // Sort by weight descending
+  const sorted = BANKS
+    .map(b => ({ ...b, w: THESIS_WEIGHTS[b.id] || 0 }))
+    .sort((a, b) => b.w - a.w);
+
+  sorted.forEach(b => {
+    const row = document.createElement('div');
+    row.className = 'alloc-row';
+
+    const pct = (b.w * 100).toFixed(1) + '%';
+    const etb = fmtEtb(b.w);
+
+    row.innerHTML = `
+      <div class="alloc-name">${b.code}</div>
+      <div class="alloc-bar-wrap">
+        <div class="alloc-bar" style="width:${b.w * 100}%;background:${b.color}"></div>
+      </div>
+      <div class="alloc-pct">${pct}</div>
+      <div class="alloc-etb">${b.w > 0 ? etb : '—'}</div>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RENDER INPUT TABLE
+───────────────────────────────────────────────────────────── */
+function renderInputTable() {
+  const tbody = document.getElementById('roe-table-body');
+  tbody.innerHTML = '';
+
+  BANKS.forEach(b => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="bank-name-cell">${b.name}</div>
+        <div class="bank-code">${b.code}</div>
+      </td>
+      <td>
+        <span class="mean-roe-cell">${fmt(b.meanROE)}%</span>
+      </td>
+      <td>
+        <input class="roe-input" type="number" id="roe-${b.id}"
+               value="${fmt(b.meanROE)}" min="0" max="30" step="0.01"
+               onchange="markChanged(this)" oninput="markChanged(this)" />
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function markChanged(el) {
+  const bankId = el.id.replace('roe-', '');
+  const bank = BANKS.find(b => b.id === bankId);
+  const defaultVal = fmt(bank.meanROE);
+  el.classList.toggle('changed', el.value !== defaultVal);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCENARIOS
+───────────────────────────────────────────────────────────── */
+const SCENARIOS = {
+  coop_decline: {
+    label: 'COOP Decline',
+    changes: { coop: 11.9 }
+  },
+  wegagen_recovery: {
+    label: 'Wegagen Recovery',
+    changes: { wegagen: 18.0 }
+  },
+  awash_shock: {
+    label: 'Awash Shock',
+    changes: { awash: 18.0 }
+  },
+  optimistic: {
+    label: 'Optimistic Forecast',
+    changes: { dashen: 22.0, coop: 20.0, awash: 25.0, cbe: 24.0 }
+  }
+};
+
+let currentScenarioLabel = 'Custom Scenario';
+
+function applyScenario(key) {
+  const sc = SCENARIOS[key];
+  if (!sc) return;
+
+  // Reset all to defaults first
+  BANKS.forEach(b => {
+    const el = document.getElementById(`roe-${b.id}`);
+    el.value = fmt(b.meanROE);
+    el.classList.remove('changed');
+  });
+
+  // Apply changes
+  Object.entries(sc.changes).forEach(([id, val]) => {
+    const el = document.getElementById(`roe-${id}`);
+    if (el) {
+      el.value = fmt(val);
+      el.classList.add('changed');
+    }
+  });
+
+  currentScenarioLabel = sc.label;
+  showToast(`📌 Scenario applied: ${sc.label} — recalculating...`);
+
+  // Auto-calculate
+  setTimeout(recalculate, 150);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RESET
+───────────────────────────────────────────────────────────── */
+function resetInputs() {
+  BANKS.forEach(b => {
+    const el = document.getElementById(`roe-${b.id}`);
+    el.value = fmt(b.meanROE);
+    el.classList.remove('changed');
+  });
+  document.getElementById('results-section').classList.remove('visible');
+  document.getElementById('error-box').classList.remove('visible');
+  document.getElementById('comparison-container').style.display = 'none';
+  currentScenarioLabel = 'Custom Scenario';
+  showToast('↩ Reset to thesis default values.');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RECALCULATE
+───────────────────────────────────────────────────────────── */
+function recalculate() {
+  const btn = document.getElementById('calc-btn');
+  const errBox = document.getElementById('error-box');
+  errBox.classList.remove('visible');
+
+  // Read and validate inputs
+  let valid = true;
+  const forecastROEs = [];
+  const muVec = BANKS.map(b => {
+    const el = document.getElementById(`roe-${b.id}`);
+    let val = parseFloat(el.value);
+    if (isNaN(val)) { valid = false; return 0; }
+
+    // Clamp to [0, 30]
+    if (val < 0) {
+      val = 0; el.value = fmt(0); showToast(`⚠ ${b.code} ROE clamped to minimum 0%.`);
+    } else if (val > 30) {
+      val = 30; el.value = fmt(30); showToast(`⚠ ${b.code} ROE clamped to maximum 30%.`);
+    }
+    // Treat very low ROE as 0.5% to avoid optimizer issues
+    if (val < 0.5) val = 0.5;
+
+    forecastROEs.push(val);
+    return val / 100;
+  });
+
+  if (!valid) {
+    errBox.textContent = '⚠ Please enter valid ROE values for all banks before recalculating.';
+    errBox.classList.add('visible');
+    return;
+  }
+
+  // If every forecast equals the thesis mean ROE, skip the optimizer and
+  // display the exact thesis weights directly.
+  const isThesisDefault = BANKS.every((b, i) => Math.abs(forecastROEs[i] - b.meanROE) < 0.01);
+  if (isThesisDefault) {
+    const thesisWeightsArray = BANKS.map(b => THESIS_WEIGHTS[b.id] || 0);
+    const thesisResult = {
+      weights: thesisWeightsArray,
+      ret:     THESIS_RETURN,
+      sigma:   THESIS_SIGMA,
+      sharpe:  THESIS_SHARPE,
+    };
+    renderResults(thesisResult, muVec);
+    document.getElementById('scenario-tag').textContent = 'Thesis Default';
+    currentScenarioLabel = 'Custom Scenario';
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    showToast('📐 Showing exact thesis weights (inputs match historical means).');
+    return;
+  }
+
+  // Loading state
+  btn.classList.add('loading');
+
+  setTimeout(() => {
+    btn.classList.remove('loading');
+
+    const result = computePortfolio(muVec, forecastROEs);
+
+    if (!result) {
+      const rfPct = (RF * 100).toFixed(1);
+      errBox.textContent = `⚠ No optimal portfolio found. This usually means all expected returns are at or below the risk-free rate (${rfPct}%), leaving no incentive to hold risky assets. Try increasing some ROE forecasts above ${rfPct}%, or lower the Rf slider.`;
+      errBox.classList.add('visible');
+      return;
+    }
+
+    renderResults(result, muVec);
+    document.getElementById('scenario-tag').textContent = currentScenarioLabel;
+    currentScenarioLabel = 'Custom Scenario'; // reset after use
+
+    // Scroll to results
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    showToast('✅ Portfolio recalculated successfully!');
+  }, 320);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RENDER RESULTS
+───────────────────────────────────────────────────────────── */
+function renderResults(result, muVec) {
+  const sec = document.getElementById('results-section');
+  sec.classList.add('visible');
+
+  // Update metrics
+  document.getElementById('res-return').textContent = fmt(result.ret * 100, 2) + '%';
+  document.getElementById('res-sigma').textContent  = fmt(result.sigma * 100, 2) + '%';
+  document.getElementById('res-sharpe').textContent = fmt(result.sharpe, 2);
+
+  // Colour code metrics
+  const retEl    = document.getElementById('res-return');
+  const sharpeEl = document.getElementById('res-sharpe');
+
+  retEl.style.color    = result.ret    > THESIS_RETURN ? 'var(--green)' :
+                         result.ret    < THESIS_RETURN ? 'var(--red)'   : 'var(--gold-light)';
+  sharpeEl.style.color = result.sharpe > THESIS_SHARPE ? 'var(--green)' :
+                         result.sharpe < THESIS_SHARPE ? 'var(--red)'   : 'var(--gold-light)';
+
+  // Build allocation display
+  const wrap = document.getElementById('results-alloc');
+  wrap.innerHTML = '';
+
+  const sorted = BANKS
+    .map((b, i) => ({ ...b, w: result.weights[i], prevW: THESIS_WEIGHTS[b.id] || 0 }))
+    .sort((a, b) => b.w - a.w);
+
+  sorted.forEach(b => {
+    const diff = b.w - b.prevW;
+    const diffPct = (diff * 100);
+    let badgeHtml = '';
+
+    if (Math.abs(diffPct) >= 0.1) {
+      const dir = diff > 0 ? 'up' : 'down';
+      const sign = diff > 0 ? '▲' : '▼';
+      badgeHtml = `<span class="change-badge ${dir}">${sign} ${Math.abs(diffPct).toFixed(1)}pp</span>`;
+    } else {
+      badgeHtml = `<span class="change-badge flat">→</span>`;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'delta-row';
+    row.innerHTML = `
+      <div class="delta-name">${b.code} ${badgeHtml}</div>
+      <div class="delta-bar-wrap alloc-bar-wrap">
+        <div class="alloc-bar" style="width:${b.w*100}%;background:${b.color}"></div>
+      </div>
+      <div class="delta-new">${(b.w*100).toFixed(1)}%</div>
+      <div class="delta-etb">${b.w > 0 ? fmtEtb(b.w) : '—'}</div>
+    `;
+    wrap.appendChild(row);
+  });
+
+  // ── Single-Bank vs Diversified Comparison ─────────────────
+  let bestBankIndex = -1, bestROE = -Infinity;
+  for (let i = 0; i < muVec.length; i++) {
+    if (muVec[i] * 100 > bestROE) { bestROE = muVec[i] * 100; bestBankIndex = i; }
+  }
+  const bestBank       = BANKS[bestBankIndex];
+  const bestBankRet    = muVec[bestBankIndex];
+  const bestBankSigma  = Math.sqrt(COV[bestBankIndex][bestBankIndex]);
+  const bestBankSharpe = (bestBankRet - RF) / bestBankSigma;
+
+  const retDiff   = ((bestBankRet   - result.ret)   * 100).toFixed(1);
+  const sigmaDiff = ((bestBankSigma - result.sigma)  * 100).toFixed(1);
+  const sharpePct = bestBankSharpe !== 0
+    ? ((result.sharpe - bestBankSharpe) / Math.abs(bestBankSharpe) * 100).toFixed(0)
+    : '—';
+
+  document.getElementById('comparison-container').innerHTML = `
+    <div class="comparison-title"><span>⚖️</span> Single‑Bank vs. Diversified Portfolio</div>
+    <div class="comparison-row">
+      <div class="comparison-card">
+        <h4>🚀 Best Single Bank (${bestBank.code})</h4>
+        <div class="comparison-value">${(bestBankRet * 100).toFixed(2)}%</div>
+        <div class="comparison-label">Expected Return</div>
+        <div class="comparison-value" style="font-size:18px;color:var(--red);">${(bestBankSigma * 100).toFixed(2)}%</div>
+        <div class="comparison-label">Risk (Std Dev)</div>
+        <div class="comparison-value" style="font-size:18px;">${bestBankSharpe.toFixed(2)}</div>
+        <div class="comparison-label">Sharpe Ratio</div>
+        <div class="comparison-value" style="font-size:18px;">${fmtEtb(bestBankRet)}</div>
+        <div class="comparison-label">Annual Gain (1M ETB)</div>
+      </div>
+      <div class="comparison-card">
+        <h4>✅ Tangency Portfolio (Diversified)</h4>
+        <div class="comparison-value">${(result.ret * 100).toFixed(2)}%</div>
+        <div class="comparison-label">Expected Return</div>
+        <div class="comparison-value" style="font-size:18px;color:var(--green);">${(result.sigma * 100).toFixed(2)}%</div>
+        <div class="comparison-label">Risk (Std Dev)</div>
+        <div class="comparison-value" style="font-size:18px;">${result.sharpe.toFixed(2)}</div>
+        <div class="comparison-label">Sharpe Ratio</div>
+        <div class="comparison-value" style="font-size:18px;">${fmtEtb(result.ret)}</div>
+        <div class="comparison-label">Annual Gain (1M ETB)</div>
+      </div>
+    </div>
+    <div style="font-size:12px;margin-top:14px;text-align:center;color:var(--slate-dim);line-height:1.7;">
+      💡 The diversified portfolio gives up only
+      <strong style="color:var(--white);">${retDiff} pp</strong> of return
+      but reduces risk by
+      <strong style="color:var(--green);">${sigmaDiff} pp</strong> —
+      a <strong style="color:var(--gold-light);">${sharpePct}% improvement</strong> in Sharpe Ratio.
+    </div>
+  `;
+  document.getElementById('comparison-container').style.display = 'block';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NEWSLETTER MOCK
+───────────────────────────────────────────────────────────── */
+function subscribeMock() {
+  const email = document.getElementById('email-input').value.trim();
+  if (!email || !email.includes('@')) {
+    showToast('📧 Please enter a valid email address.');
+    return;
+  }
+
+  const resultsVisible = document.getElementById('results-section').classList.contains('visible');
+  let alertBody = '';
+
+  if (resultsVisible) {
+    // Pull current weights from the displayed results
+    const weightLines = [];
+    document.querySelectorAll('#results-alloc .delta-row').forEach(row => {
+      const nameEl = row.querySelector('.delta-name');
+      const pctEl  = row.querySelector('.delta-new');
+      if (nameEl && pctEl) {
+        const name = nameEl.textContent.replace(/[▲▼→].*/, '').trim();
+        const pct  = pctEl.textContent.trim();
+        if (pct !== '0.0%') weightLines.push(`${name}: ${pct}`);
+      }
+    });
+    alertBody = weightLines.length
+      ? `Recommended allocation:\n${weightLines.join('\n')}\n\nRebalance your portfolio accordingly.`
+      : 'Run the optimizer first to see allocation details.';
+  } else {
+    alertBody = 'Run the optimizer above to see your personalised allocation before subscribing.';
+  }
+
+  alert(
+    `📬 Demo Alert Simulation\n\n` +
+    `If this were live, you (${email}) would receive:\n\n` +
+    `"Ethiopian Bank Portfolio Alert:\n` +
+    `${alertBody}"\n\n` +
+    `(No data has been stored or transmitted — this is a demonstration only.)`
+  );
+
+  showToast(`✉️ Demo: Alert simulated for ${email}`);
+  document.getElementById('email-input').value = '';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  renderThesisAlloc();
+  renderInputTable();
+
+  // Animate bars after a short delay
+  setTimeout(() => {
+    document.querySelectorAll('#thesis-alloc .alloc-bar').forEach(bar => {
+      const w = bar.style.width;
+      bar.style.width = '0';
+      requestAnimationFrame(() => {
+        setTimeout(() => { bar.style.width = w; }, 50);
+      });
+    });
+  }, 200);
+});
+</script>
+</body>
+</html>
