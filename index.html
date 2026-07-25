@@ -756,7 +756,7 @@ footer strong { color: var(--slate); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RISK-FREE RATE SLIDER
+   RISK-FREE RATE SLIDER — UPDATED TO 20%
 ═══════════════════════════════════════════════════════════════ */
 .rf-slider-wrap {
   background: rgba(212,160,23,0.05);
@@ -974,19 +974,19 @@ footer strong { color: var(--slate); }
     </table>
   </div>
 
-  <!-- Risk-free Rate Slider -->
+  <!-- Risk-free Rate Slider — EXTENDED TO 20% -->
   <div class="rf-slider-wrap">
     <div class="rf-slider-label">
       Risk-free rate (Rf):
       <span class="rf-value" id="rf-display">7.0%</span>
-      <span class="rf-hint">Ethiopian T-Bill proxy · range 5%–11%</span>
+      <span class="rf-hint">Ethiopian T-Bill proxy · range 5%–20% · Current NBR: 16%</span>
     </div>
     <input class="rf-slider" type="range" id="rf-slider"
-           min="5" max="11" step="0.5" value="7"
+           min="5" max="20" step="0.5" value="7"
            oninput="updateRF(this.value)" />
     <div class="rf-ticks">
-      <span>5%</span><span>6%</span><span>7%</span><span>8%</span>
-      <span>9%</span><span>10%</span><span>11%</span>
+      <span>5%</span><span>8%</span><span>11%</span><span>14%</span>
+      <span>17%</span><span>20%</span>
     </div>
   </div>
 
@@ -1216,8 +1216,7 @@ function computePortfolio(muVec, forecastROEs) {
     // (equivalent to adding tiny noise to each asset's own variance)
     let eigMin = 0;
     {
-      // Quick check via Cholesky-like diagonal lower bound
-      // We use a simple Gershgorin circle estimate for minimum eigenvalue
+      // Quick check via Gershgorin circle estimate for minimum eigenvalue
       for (let i = 0; i < k; i++) {
         let offSum = 0;
         for (let j = 0; j < k; j++) if (j !== i) offSum += Math.abs(subCOV[i][j]);
@@ -1438,7 +1437,7 @@ function resetInputs() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   RECALCULATE
+   RECALCULATE — FIXED: checks RF in shortcut
 ───────────────────────────────────────────────────────────── */
 function recalculate() {
   const btn = document.getElementById('calc-btn');
@@ -1472,22 +1471,23 @@ function recalculate() {
     return;
   }
 
-  // If every forecast equals the thesis mean ROE, skip the optimizer and
-  // display the exact thesis weights directly.
-  const isThesisDefault = BANKS.every((b, i) => Math.abs(forecastROEs[i] - b.meanROE) < 0.01);
+  /* ── FIX: Check BOTH ROE inputs AND RF ──────────────────── */
+  const isThesisDefault = BANKS.every((b, i) => Math.abs(forecastROEs[i] - b.meanROE) < 0.01)
+                       && Math.abs(RF - 0.07) < 0.001;  // ✅ RF must also be 7%
+
   if (isThesisDefault) {
     const thesisWeightsArray = BANKS.map(b => THESIS_WEIGHTS[b.id] || 0);
     const thesisResult = {
       weights: thesisWeightsArray,
       ret:     THESIS_RETURN,
       sigma:   THESIS_SIGMA,
-      sharpe:  THESIS_SHARPE,
+      sharpe:  THESIS_SHARPE,  // 15.84 — calculated at Rf=7%
     };
     renderResults(thesisResult, muVec);
     document.getElementById('scenario-tag').textContent = 'Thesis Default';
     currentScenarioLabel = 'Custom Scenario';
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    showToast('📐 Showing exact thesis weights (inputs match historical means).');
+    showToast('📐 Showing exact thesis weights (Rf=7%, inputs match historical means).');
     return;
   }
 
